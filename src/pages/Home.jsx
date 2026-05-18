@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ImagePlus, Heart, MessageCircle, Repeat, Share, Loader2, X } from 'lucide-react';
+import { ImagePlus, Heart, MessageCircle, Repeat, Share, Loader2, X, Trash2 } from 'lucide-react';
 import { auth, db } from '../firebase';
 import { collection, addDoc, onSnapshot, query, orderBy, serverTimestamp, doc, updateDoc, increment, deleteDoc } from 'firebase/firestore';
 
@@ -138,7 +138,7 @@ function Home() {
 
   // 日付フォーマット関数
   const formatDate = (timestamp) => {
-    if (!timestamp) return '';
+    if (!timestamp || typeof timestamp.toDate !== 'function') return 'たった今';
     const date = timestamp.toDate();
     const now = new Date();
     const diffMs = now - date;
