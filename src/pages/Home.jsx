@@ -2,13 +2,14 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { ImagePlus, Heart, MessageCircle, Repeat, Share, Loader2, X, Trash2 } from 'lucide-react';
 import { auth, db } from '../firebase';
 import { collection, addDoc, onSnapshot, query, orderBy, serverTimestamp, doc, updateDoc, increment, deleteDoc, limit, arrayUnion, arrayRemove, setDoc } from 'firebase/firestore';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 // TODO: 後ほどユーザーに設定してもらうCloudinaryの定数
 const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || '';
 const CLOUDINARY_UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || '';
 
 function Home() {
+  const navigate = useNavigate();
   const [content, setContent] = useState('');
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
@@ -231,7 +232,7 @@ function Home() {
   // フィルタリングされた投稿
   const displayedPosts = filterTag 
     ? posts.filter(post => post.content && post.content.includes(filterTag))
-    : posts;
+    : posts.filter(post => !post.replyTo);
 
   return (
     <>
@@ -353,7 +354,7 @@ function Home() {
                   )}
                 </Link>
                 <div className="post-footer">
-                  <button className="interaction-btn">
+                  <button className="interaction-btn" onClick={(e) => { e.preventDefault(); navigate(`/post/${post.id}`); }}>
                     <MessageCircle size={18} />
                   </button>
                   <button className="interaction-btn">

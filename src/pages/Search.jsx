@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { Heart, MessageCircle, Repeat, Share, Loader2, Search as SearchIcon } from 'lucide-react';
 import { auth, db } from '../firebase';
 import { collection, getDocs, query, orderBy, limit, doc, updateDoc, increment, arrayRemove, setDoc, arrayUnion, onSnapshot } from 'firebase/firestore';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 
 function Search() {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const initialQuery = searchParams.get('q') || '';
   const [keyword, setKeyword] = useState(initialQuery);
@@ -143,7 +144,7 @@ function Search() {
                     {post.image && <div className="post-image"><img src={post.image} alt="attachment" /></div>}
                   </Link>
                   <div className="post-footer">
-                    <button className="interaction-btn"><MessageCircle size={18} /></button>
+                    <button className="interaction-btn" onClick={(e) => { e.preventDefault(); navigate(`/post/${post.id}`); }}><MessageCircle size={18} /></button>
                     <button className="interaction-btn"><Repeat size={18} /></button>
                     <button className="interaction-btn heart" onClick={() => handleLike(post.id)}>
                       <Heart size={18} fill={isLiked ? 'var(--danger-color)' : 'none'} color={isLiked ? 'var(--danger-color)' : 'currentColor'} />

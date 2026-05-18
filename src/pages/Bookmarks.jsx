@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { Heart, MessageCircle, Repeat, Share, Loader2, Trash2 } from 'lucide-react';
 import { auth, db } from '../firebase';
 import { doc, getDoc, updateDoc, increment, arrayRemove, setDoc, onSnapshot, collection } from 'firebase/firestore';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 function Bookmarks() {
+  const navigate = useNavigate();
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [users, setUsers] = useState({});
@@ -134,7 +135,7 @@ function Bookmarks() {
                   )}
                 </Link>
                 <div className="post-footer">
-                  <button className="interaction-btn">
+                  <button className="interaction-btn" onClick={(e) => { e.preventDefault(); navigate(`/post/${post.id}`); }}>
                     <MessageCircle size={18} />
                   </button>
                   <button className="interaction-btn">

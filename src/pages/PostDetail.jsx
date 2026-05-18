@@ -179,7 +179,7 @@ function PostDetail() {
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'space-around', paddingTop: '12px' }}>
-          <button className="interaction-btn"><MessageCircle size={22} /></button>
+          <button className="interaction-btn" onClick={(e) => { e.preventDefault(); document.querySelector('.composer-input').focus(); }}><MessageCircle size={22} /></button>
           <button className="interaction-btn"><Repeat size={22} /></button>
           <button className="interaction-btn heart" onClick={() => handleLike(post.id)}>
             <Heart size={22} fill={isLiked ? 'var(--danger-color)' : 'none'} color={isLiked ? 'var(--danger-color)' : 'currentColor'} />
@@ -247,7 +247,7 @@ function PostDetail() {
                   {renderContentWithTags(reply.content || '')}
                 </div>
                 <div className="post-footer">
-                  <button className="interaction-btn"><MessageCircle size={18} /></button>
+                  <button className="interaction-btn" onClick={(e) => { e.preventDefault(); navigate(`/post/${reply.id}`); }}><MessageCircle size={18} /></button>
                   <button className="interaction-btn heart" onClick={() => handleLike(reply.id)}>
                     <Heart size={18} fill={rIsLiked ? 'var(--danger-color)' : 'none'} color={rIsLiked ? 'var(--danger-color)' : 'currentColor'} />
                     <span style={{ color: rIsLiked ? 'var(--danger-color)' : 'inherit' }}>{reply.likes > 0 ? reply.likes : ''}</span>
