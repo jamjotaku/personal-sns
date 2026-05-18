@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Loader2, Trash2, Edit3, Send } from 'lucide-react';
 import { auth, db } from '../firebase';
-import { collection, addDoc, query, where, orderBy, onSnapshot, doc, deleteDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
+import { collection, addDoc, query, where, onSnapshot, doc, deleteDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
 
 function Drafts() {
   const [drafts, setDrafts] = useState([]);
@@ -17,11 +17,12 @@ function Drafts() {
     if (!user) return;
     const q = query(
       collection(db, 'drafts'), 
-      where('userId', '==', user.uid), 
-      orderBy('updatedAt', 'desc')
+      where('userId', '==', user.uid)
     );
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      setDrafts(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+      const docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+      docs.sort((a, b) => (b.updatedAt?.toMillis() || 0) - (a.updatedAt?.toMillis() || 0));
+      setDrafts(docs);
       setLoading(false);
     });
     return () => unsubscribe();

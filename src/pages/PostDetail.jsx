@@ -41,10 +41,12 @@ function PostDetail() {
       setLoading(false);
     });
 
-    // 返信を取得
-    const q = query(collection(db, 'posts'), where('replyTo', '==', id), orderBy('createdAt', 'asc'));
+    // 返信を取得 (複合インデックスエラーを避けるためorderByを外しクライアントでソート)
+    const q = query(collection(db, 'posts'), where('replyTo', '==', id));
     const unsubscribeReplies = onSnapshot(q, (snapshot) => {
-      setReplies(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+      const reps = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+      reps.sort((a, b) => (a.createdAt?.toMillis() || 0) - (b.createdAt?.toMillis() || 0));
+      setReplies(reps);
     });
 
     return () => {
