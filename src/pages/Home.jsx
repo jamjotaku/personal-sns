@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { ImagePlus, Heart, MessageCircle, Repeat, Share, Loader2, X, Trash2 } from 'lucide-react';
 import { auth, db } from '../firebase';
-import { collection, addDoc, onSnapshot, query, orderBy, serverTimestamp, doc, updateDoc, increment, deleteDoc } from 'firebase/firestore';
+import { collection, addDoc, onSnapshot, query, orderBy, serverTimestamp, doc, updateDoc, increment, deleteDoc, limit, arrayUnion, arrayRemove, setDoc } from 'firebase/firestore';
+import { Link } from 'react-router-dom';
 
 // TODO: 後ほどユーザーに設定してもらうCloudinaryの定数
 const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || '';
@@ -15,6 +16,19 @@ function Home() {
   const [posts, setPosts] = useState([]);
   const [filterTag, setFilterTag] = useState(null);
   const [users, setUsers] = useState({});
+  const [limitCount, setLimitCount] = useState(20);
+  const [hasMore, setHasMore] = useState(true);
+  const observer = useRef();
+  
+  const lastPostElementRef = useCallback(node => {
+    if (observer.current) observer.current.disconnect();
+    observer.current = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting && hasMore) {
+        setLimitCount(prev => prev + 20);
+      }
+    });
+    if (node) observer.current.observe(node);
+  }, [hasMore]);
   
   const fileInputRef = useRef(null);
   const user = auth.currentUser;
@@ -33,19 +47,20 @@ function Home() {
 
   // Firestoreからタイムラインを取得
   useEffect(() => {
-    const q = query(collection(db, 'posts'), orderBy('createdAt', 'desc'));
+    const q = query(collection(db, 'posts'), orderBy('createdAt', 'desc'), limit(limitCount));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const postsData = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       }));
       setPosts(postsData);
+      setHasMore(snapshot.docs.length === limitCount);
     }, (error) => {
       console.error("Firestore Error:", error);
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [limitCount]);
 
   // 画像選択のハンドリング
   const handleImageChange = (e) => {
@@ -128,11 +143,20 @@ function Home() {
 
   // いいね処理
   const handleLike = async (postId) => {
+    if (!user) return;
     try {
       const postRef = doc(db, 'posts', postId);
-      await updateDoc(postRef, {
-        likes: increment(1)
-      });
+      const userRef = doc(db, 'users', user.uid);
+      
+      const isLiked = users[user.uid]?.bookmarks?.includes(postId);
+      
+      if (isLiked) {
+        await updateDoc(postRef, { likes: increment(-1) });
+        await updateDoc(userRef, { bookmarks: arrayRemove(postId) });
+      } else {
+        await updateDoc(postRef, { likes: increment(1) });
+        await setDoc(userRef, { bookmarks: arrayUnion(postId) }, { merge: true });
+      }
     } catch (error) {
       console.error("いいねエラー:", error);
     }
@@ -292,13 +316,15 @@ function Home() {
             {filterTag ? `${filterTag} を含むポストが見つかりませんでした。` : 'まだポストがありません。初めての壁打ちをしてみましょう！'}
           </div>
         ) : (
-          displayedPosts.map(post => {
+          displayedPosts.map((post, index) => {
             const postUser = getPostUserProfile(post);
             const currentUsername = '@' + user?.email?.split('@')[0];
             const isOwnPost = post.userId === user?.uid || (!post.userId && post.username === currentUsername);
+            const isLiked = users[user?.uid]?.bookmarks?.includes(post.id);
+            const isLastPost = index === displayedPosts.length - 1;
 
             return (
-            <article key={post.id} className="post">
+            <article key={post.id} className="post" ref={isLastPost ? lastPostElementRef : null}>
               <div className="avatar">
                 <img src={postUser.photoURL || `https://ui-avatars.com/api/?name=${post.username?.replace('@','') || 'U'}&background=1d9bf0&color=fff`} alt="avatar" />
               </div>
@@ -316,14 +342,16 @@ function Home() {
                     </button>
                   )}
                 </div>
-                <div className="post-text">
-                  {renderContentWithTags(post.content || '')}
-                </div>
-                {post.image && (
-                  <div className="post-image">
-                    <img src={post.image} alt="post attachment" />
+                <Link to={`/post/${post.id}`} style={{ display: 'block', color: 'inherit', textDecoration: 'none' }}>
+                  <div className="post-text">
+                    {renderContentWithTags(post.content || '')}
                   </div>
-                )}
+                  {post.image && (
+                    <div className="post-image">
+                      <img src={post.image} alt="post attachment" />
+                    </div>
+                  )}
+                </Link>
                 <div className="post-footer">
                   <button className="interaction-btn">
                     <MessageCircle size={18} />
@@ -332,8 +360,8 @@ function Home() {
                     <Repeat size={18} />
                   </button>
                   <button className="interaction-btn heart" onClick={() => handleLike(post.id)}>
-                    <Heart size={18} />
-                    <span>{post.likes > 0 ? post.likes : ''}</span>
+                    <Heart size={18} fill={isLiked ? 'var(--danger-color)' : 'none'} color={isLiked ? 'var(--danger-color)' : 'currentColor'} />
+                    <span style={{ color: isLiked ? 'var(--danger-color)' : 'inherit' }}>{post.likes > 0 ? post.likes : ''}</span>
                   </button>
                   <button className="interaction-btn">
                     <Share size={18} />
@@ -343,6 +371,11 @@ function Home() {
             </article>
             );
           })
+        )}
+        {hasMore && displayedPosts.length > 0 && !filterTag && (
+          <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+            <Loader2 className="spinner" size={24} style={{ margin: '0 auto' }} />
+          </div>
         )}
       </div>
     </>

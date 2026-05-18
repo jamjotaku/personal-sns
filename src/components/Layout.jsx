@@ -1,12 +1,37 @@
-import React from 'react';
-import { Home, Bell, Mail, User, Search, Sparkles } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Home, Bell, Mail, User, Search, Sparkles, Moon, Sun } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
-import { auth } from '../firebase';
+import { auth, db } from '../firebase';
 import { signOut } from 'firebase/auth';
+import { doc, onSnapshot } from 'firebase/firestore';
 
 function Layout({ children }) {
   const location = useLocation();
   const user = auth.currentUser;
+  const [profileData, setProfileData] = useState(null);
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    return localStorage.getItem('theme') !== 'light';
+  });
+
+  useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.remove('light');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.documentElement.classList.add('light');
+      localStorage.setItem('theme', 'light');
+    }
+  }, [isDarkMode]);
+
+  useEffect(() => {
+    if (!user) return;
+    const unsubscribe = onSnapshot(doc(db, 'users', user.uid), (docSnap) => {
+      if (docSnap.exists()) {
+        setProfileData(docSnap.data());
+      }
+    });
+    return () => unsubscribe();
+  }, [user]);
 
   const handleLogout = () => {
     // ログアウト処理（現状はダミーの可能性もあり）
@@ -26,22 +51,26 @@ function Layout({ children }) {
               <Home size={28} />
               <span className="nav-text">ホーム</span>
             </Link>
-            <Link to="#" className="nav-item">
+            <Link to="/search" className={`nav-item ${location.pathname === '/search' ? 'active' : ''}`}>
               <Search size={28} />
               <span className="nav-text">検索</span>
             </Link>
-            <Link to="#" className="nav-item">
+            <Link to="/bookmarks" className={`nav-item ${location.pathname === '/bookmarks' ? 'active' : ''}`}>
               <Bell size={28} />
-              <span className="nav-text">通知</span>
+              <span className="nav-text">お気に入り</span>
             </Link>
-            <Link to="#" className="nav-item">
+            <Link to="/drafts" className={`nav-item ${location.pathname === '/drafts' ? 'active' : ''}`}>
               <Mail size={28} />
-              <span className="nav-text">メッセージ</span>
+              <span className="nav-text">下書き</span>
             </Link>
             <Link to="/profile" className={`nav-item ${location.pathname === '/profile' ? 'active' : ''}`}>
               <User size={28} />
               <span className="nav-text">プロフィール</span>
             </Link>
+            <button className="nav-item" onClick={() => setIsDarkMode(!isDarkMode)} style={{ width: '100%', textAlign: 'left', background: 'none', border: 'none', color: 'inherit', font: 'inherit', cursor: 'pointer' }}>
+              {isDarkMode ? <Sun size={28} /> : <Moon size={28} />}
+              <span className="nav-text">{isDarkMode ? 'ライトモード' : 'ダークモード'}</span>
+            </button>
           </nav>
           
           <button className="post-btn-sidebar">
@@ -50,10 +79,10 @@ function Layout({ children }) {
 
           <div className="user-profile-mini" onClick={handleLogout} title="ログアウト">
             <div className="avatar">
-              <img src={user?.photoURL || `https://ui-avatars.com/api/?name=${user?.email?.split('@')[0] || 'U'}&background=1d9bf0&color=fff`} alt="avatar" />
+              <img src={profileData?.photoURL || user?.photoURL || `https://ui-avatars.com/api/?name=${user?.email?.split('@')[0] || 'U'}&background=1d9bf0&color=fff`} alt="avatar" />
             </div>
             <div className="user-info">
-              <span className="user-name">{user?.displayName || '自分'}</span>
+              <span className="user-name">{profileData?.displayName || user?.displayName || '自分'}</span>
               <span className="user-id">@{user?.email?.split('@')[0]}</span>
             </div>
           </div>
