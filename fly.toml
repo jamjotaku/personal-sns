@@ -1,0 +1,17 @@
+app = "personal-sns"
+primary_region = "nrt"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = true
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ["app"]
+
+[env]
+  # デプロイ時に必要な環境変数は `fly secrets set` コマンドで設定してください
+  # 例: fly secrets set VITE_CLOUDINARY_CLOUD_NAME=xxx
