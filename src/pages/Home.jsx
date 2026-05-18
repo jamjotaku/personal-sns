@@ -14,9 +14,22 @@ function Home() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [posts, setPosts] = useState([]);
   const [filterTag, setFilterTag] = useState(null);
+  const [users, setUsers] = useState({});
   
   const fileInputRef = useRef(null);
   const user = auth.currentUser;
+
+  // Firestoreからユーザープロフィール情報を取得
+  useEffect(() => {
+    const unsubscribeUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
+      const usersData = {};
+      snapshot.forEach(doc => {
+        usersData[doc.id] = doc.data();
+      });
+      setUsers(usersData);
+    });
+    return () => unsubscribeUsers();
+  }, []);
 
   // Firestoreからタイムラインを取得
   useEffect(() => {
@@ -90,11 +103,12 @@ function Home() {
       }
 
       // Firestoreにデータを保存
+      const currentUsername = '@' + user.email.split('@')[0];
       await addDoc(collection(db, 'posts'), {
         userId: user.uid,
-        // ダミーメールアドレスから @ より前の部分をIDとして扱う
-        username: '@' + user.email.split('@')[0], 
-        author: '自分', // 便宜上「自分」とするか、プロフィール設定機能を作るまで固定
+        username: currentUsername, 
+        author: users[user.uid]?.displayName || '自分',
+        userPhotoURL: users[user.uid]?.photoURL || null,
         content: content.trim(),
         image: imageUrl,
         likes: 0,
@@ -125,8 +139,8 @@ function Home() {
   };
 
   // 削除処理 (自分の投稿のみ)
-  const handleDelete = async (postId, postUserId) => {
-    if (postUserId !== user?.uid) return;
+  const handleDelete = async (postId, isOwnPost) => {
+    if (!isOwnPost) return;
     if (window.confirm('このポストを削除しますか？')) {
       try {
         await deleteDoc(doc(db, 'posts', postId));
@@ -134,6 +148,21 @@ function Home() {
         console.error("削除エラー:", error);
       }
     }
+  };
+
+  // 過去の投稿（userIdがない場合）も含めてプロフィールを解決する関数
+  const getPostUserProfile = (post) => {
+    if (post.userId && users[post.userId]) {
+      return users[post.userId];
+    }
+    const currentUsername = '@' + user?.email?.split('@')[0];
+    if (!post.userId && post.username === currentUsername && users[user?.uid]) {
+      return users[user?.uid];
+    }
+    return {
+      displayName: post.author || '自分',
+      photoURL: post.userPhotoURL || null
+    };
   };
 
   // 日付フォーマット関数
@@ -200,14 +229,23 @@ function Home() {
       {/* コンポーザー（投稿フォーム） */}
       <div className="composer">
         <div className="avatar">
-          <img src={`https://ui-avatars.com/api/?name=${user?.email?.split('@')[0] || 'ME'}&background=1d9bf0&color=fff`} alt="avatar" />
+          <img src={users[user?.uid]?.photoURL || user?.photoURL || `https://ui-avatars.com/api/?name=${user?.email?.split('@')[0] || 'ME'}&background=1d9bf0&color=fff`} alt="avatar" />
         </div>
         <div className="composer-form">
           <textarea 
             className="composer-input"
-            placeholder="いまどうしてる？（推しへの愛を叫ぼう）"
+            placeholder="いまどうしてる？（Ctrl+Enterで送信）"
             value={content}
-            onChange={(e) => setContent(e.target.value)}
+            onChange={(e) => {
+              setContent(e.target.value);
+              e.target.style.height = 'auto';
+              e.target.style.height = e.target.scrollHeight + 'px';
+            }}
+            onKeyDown={(e) => {
+              if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                handleSubmit();
+              }
+            }}
           />
           
           {/* 画像プレビュー */}
@@ -254,21 +292,26 @@ function Home() {
             {filterTag ? `${filterTag} を含むポストが見つかりませんでした。` : 'まだポストがありません。初めての壁打ちをしてみましょう！'}
           </div>
         ) : (
-          displayedPosts.map(post => (
+          displayedPosts.map(post => {
+            const postUser = getPostUserProfile(post);
+            const currentUsername = '@' + user?.email?.split('@')[0];
+            const isOwnPost = post.userId === user?.uid || (!post.userId && post.username === currentUsername);
+
+            return (
             <article key={post.id} className="post">
               <div className="avatar">
-                <img src={`https://ui-avatars.com/api/?name=${post.username?.replace('@','') || 'U'}&background=1d9bf0&color=fff`} alt="avatar" />
+                <img src={postUser.photoURL || `https://ui-avatars.com/api/?name=${post.username?.replace('@','') || 'U'}&background=1d9bf0&color=fff`} alt="avatar" />
               </div>
               <div className="post-content">
                 <div className="post-header" style={{display: 'flex', justifyContent: 'space-between'}}>
                   <div style={{display: 'flex', gap: '4px'}}>
-                    <span className="post-author">{post.author}</span>
+                    <span className="post-author">{postUser.displayName}</span>
                     <span className="post-time" style={{color: 'var(--text-secondary)'}}>
                       {post.username} · {formatDate(post.createdAt)}
                     </span>
                   </div>
-                  {post.userId === user?.uid && (
-                    <button className="interaction-btn" onClick={() => handleDelete(post.id, post.userId)}>
+                  {isOwnPost && (
+                    <button className="interaction-btn" onClick={() => handleDelete(post.id, isOwnPost)}>
                       <Trash2 size={16} />
                     </button>
                   )}
@@ -298,7 +341,8 @@ function Home() {
                 </div>
               </div>
             </article>
-          ))
+            );
+          })
         )}
       </div>
     </>
