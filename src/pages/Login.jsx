@@ -41,8 +41,10 @@ function Login() {
          setError('このIDは既に使われています。別のIDをお試しください。');
       } else if (err.code === 'auth/weak-password') {
          setError('パスワードは6文字以上で設定してください。');
+      } else if (err.code === 'auth/operation-not-allowed') {
+         setError('FirebaseコンソールのAuthenticationで「メール/パスワード認証」が有効になっていません。有効化してください。');
       } else {
-         setError('エラーが発生しました。設定が正しいか確認してください。');
+         setError(`エラーが発生しました: [${err.code}] ${err.message}`);
       }
     } finally {
       setLoading(false);
