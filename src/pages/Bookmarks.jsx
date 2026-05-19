@@ -3,6 +3,7 @@ import { Heart, MessageCircle, Repeat, Share, Loader2, Trash2 } from 'lucide-rea
 import { auth, db } from '../firebase';
 import { doc, getDoc, updateDoc, increment, arrayRemove, setDoc, onSnapshot, collection } from 'firebase/firestore';
 import { Link, useNavigate } from 'react-router-dom';
+import MarkdownRenderer from '../components/MarkdownRenderer';
 
 function Bookmarks() {
   const navigate = useNavigate();
@@ -79,14 +80,7 @@ function Bookmarks() {
     return `${date.getMonth() + 1}月${date.getDate()}日`;
   };
 
-  const renderContentWithTags = (text) => {
-    if (!text) return '';
-    const parts = text.split(/(#[^\s#]+)/g);
-    return parts.map((part, i) => {
-      if (part.startsWith('#')) return <span key={i} className="hashtag">{part}</span>;
-      return part;
-    });
-  };
+
 
   return (
     <>
@@ -124,16 +118,24 @@ function Bookmarks() {
                     </span>
                   </div>
                 </div>
-                <Link to={`/post/${post.id}`}>
+                <div 
+                  onClick={(e) => {
+                    if (e.target.closest('a, button, .hashtag, .interaction-btn')) {
+                      return;
+                    }
+                    navigate(`/post/${post.id}`);
+                  }}
+                  style={{ display: 'block', color: 'inherit', textDecoration: 'none', cursor: 'pointer' }}
+                >
                   <div className="post-text">
-                    {renderContentWithTags(post.content || '')}
+                    <MarkdownRenderer content={post.content || ''} />
                   </div>
                   {post.image && (
                     <div className="post-image">
                       <img src={post.image} alt="post attachment" />
                     </div>
                   )}
-                </Link>
+                </div>
                 <div className="post-footer">
                   <button className="interaction-btn" onClick={(e) => { e.preventDefault(); navigate(`/post/${post.id}`); }}>
                     <MessageCircle size={18} />

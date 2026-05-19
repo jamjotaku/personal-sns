@@ -3,7 +3,7 @@ import { ImagePlus, Heart, MessageCircle, Repeat, Share, Loader2, X, Trash2 } fr
 import { auth, db } from '../firebase';
 import { collection, addDoc, onSnapshot, query, orderBy, serverTimestamp, doc, updateDoc, increment, deleteDoc, limit, arrayUnion, arrayRemove, setDoc } from 'firebase/firestore';
 import { Link, useNavigate } from 'react-router-dom';
-
+import MarkdownRenderer from '../components/MarkdownRenderer';
 // TODO: 後ほどユーザーに設定してもらうCloudinaryの定数
 const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || '';
 const CLOUDINARY_UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || '';
@@ -15,6 +15,7 @@ function Home() {
   const [imagePreview, setImagePreview] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [posts, setPosts] = useState([]);
+  const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [filterTag, setFilterTag] = useState(null);
   const [users, setUsers] = useState({});
   const [limitCount, setLimitCount] = useState(20);
@@ -131,9 +132,20 @@ function Home() {
         createdAt: serverTimestamp()
       });
 
+      // --- ヒートマップ用の日別投稿数をインクリメント ---
+      const today = new Date();
+      const dateString = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+      const statRef = doc(db, 'daily_stats', dateString);
+      await setDoc(statRef, {
+        date: dateString,
+        count: increment(1),
+        userId: user.uid
+      }, { merge: true });
+
       // フォームをリセット
       setContent('');
       clearImage();
+      setIsPreviewMode(false);
     } catch (error) {
       console.error("投稿エラー:", error);
       alert("投稿に失敗しました: " + error.message);
@@ -205,29 +217,7 @@ function Home() {
     return `${date.getMonth() + 1}月${date.getDate()}日`;
   };
 
-  // ハッシュタグを青色にしてクリッカブルにする
-  const renderContentWithTags = (text) => {
-    if (!text) return '';
-    const parts = text.split(/(#[^\s#]+)/g);
-    return parts.map((part, i) => {
-      if (part.startsWith('#')) {
-        return (
-          <span 
-            key={i} 
-            className="hashtag" 
-            onClick={(e) => {
-              e.stopPropagation();
-              setFilterTag(part);
-            }}
-            style={{ cursor: 'pointer' }}
-          >
-            {part}
-          </span>
-        );
-      }
-      return part;
-    });
-  };
+
 
   // フィルタリングされた投稿
   const displayedPosts = filterTag 
@@ -257,21 +247,57 @@ function Home() {
           <img src={users[user?.uid]?.photoURL || user?.photoURL || `https://ui-avatars.com/api/?name=${user?.email?.split('@')[0] || 'ME'}&background=1d9bf0&color=fff`} alt="avatar" />
         </div>
         <div className="composer-form">
-          <textarea 
-            className="composer-input"
-            placeholder="いまどうしてる？（Ctrl+Enterで送信）"
-            value={content}
-            onChange={(e) => {
-              setContent(e.target.value);
-              e.target.style.height = 'auto';
-              e.target.style.height = e.target.scrollHeight + 'px';
-            }}
-            onKeyDown={(e) => {
-              if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-                handleSubmit();
-              }
-            }}
-          />
+          {/* 編集・プレビュー切り替えタブ */}
+          <div style={{ display: 'flex', gap: '16px', borderBottom: '1px solid var(--border-color)', marginBottom: '12px', paddingBottom: '4px' }}>
+            <button 
+              onClick={() => setIsPreviewMode(false)} 
+              style={{ 
+                fontSize: '0.85rem', 
+                fontWeight: !isPreviewMode ? '700' : '400',
+                color: !isPreviewMode ? 'var(--accent-color)' : 'var(--text-secondary)',
+                borderBottom: !isPreviewMode ? '2px solid var(--accent-color)' : 'none',
+                padding: '4px 8px'
+              }}
+            >
+              テキスト
+            </button>
+            <button 
+              onClick={() => setIsPreviewMode(true)} 
+              disabled={!content.trim()}
+              style={{ 
+                fontSize: '0.85rem', 
+                fontWeight: isPreviewMode ? '700' : '400',
+                color: isPreviewMode ? 'var(--accent-color)' : 'var(--text-secondary)',
+                borderBottom: isPreviewMode ? '2px solid var(--accent-color)' : 'none',
+                padding: '4px 8px',
+                opacity: !content.trim() ? 0.5 : 1
+              }}
+            >
+              プレビュー
+            </button>
+          </div>
+
+          {isPreviewMode ? (
+            <div style={{ minHeight: '52px', padding: '8px 0', overflowY: 'auto', maxHeights: '300px' }}>
+              <MarkdownRenderer content={content} />
+            </div>
+          ) : (
+            <textarea 
+              className="composer-input"
+              placeholder="いまどうしてる？（Ctrl+Enterで送信）"
+              value={content}
+              onChange={(e) => {
+                setContent(e.target.value);
+                e.target.style.height = 'auto';
+                e.target.style.height = e.target.scrollHeight + 'px';
+              }}
+              onKeyDown={(e) => {
+                if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                  handleSubmit();
+                }
+              }}
+            />
+          )}
           
           {/* 画像プレビュー */}
           {imagePreview && (
@@ -343,16 +369,24 @@ function Home() {
                     </button>
                   )}
                 </div>
-                <Link to={`/post/${post.id}`} style={{ display: 'block', color: 'inherit', textDecoration: 'none' }}>
+                <div 
+                  onClick={(e) => {
+                    if (e.target.closest('a, button, .hashtag, .interaction-btn')) {
+                      return;
+                    }
+                    navigate(`/post/${post.id}`);
+                  }}
+                  style={{ display: 'block', color: 'inherit', textDecoration: 'none', cursor: 'pointer' }}
+                >
                   <div className="post-text">
-                    {renderContentWithTags(post.content || '')}
+                    <MarkdownRenderer content={post.content || ''} onTagClick={setFilterTag} />
                   </div>
                   {post.image && (
                     <div className="post-image">
                       <img src={post.image} alt="post attachment" />
                     </div>
                   )}
-                </Link>
+                </div>
                 <div className="post-footer">
                   <button className="interaction-btn" onClick={(e) => { e.preventDefault(); navigate(`/post/${post.id}`); }}>
                     <MessageCircle size={18} />

@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { auth, db } from '../firebase';
-import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
 import { updateProfile } from 'firebase/auth';
 import { Camera, Loader2 } from 'lucide-react';
+import CalendarHeatmap from 'react-calendar-heatmap';
+import 'react-calendar-heatmap/dist/styles.css';
 import Layout from '../components/Layout';
 
 const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
@@ -16,6 +18,37 @@ function Profile() {
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef(null);
+
+  // ヒートマップ用ステート
+  const [heatmapData, setHeatmapData] = useState([]);
+  const [totalPostsThisYear, setTotalPostsThisYear] = useState(0);
+
+  // ヒートマップデータの取得
+  useEffect(() => {
+    if (!user) return;
+    const q = query(
+      collection(db, 'daily_stats'),
+      where('userId', '==', user.uid)
+    );
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const stats = [];
+      let total = 0;
+      snapshot.forEach(docSnap => {
+        const data = docSnap.data();
+        stats.push({
+          date: data.date,
+          count: data.count || 0
+        });
+        total += data.count || 0;
+      });
+      setHeatmapData(stats);
+      setTotalPostsThisYear(total);
+    }, (error) => {
+      console.error("Firestore Error fetching stats:", error);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
 
   // Firestoreからプロフィール情報を取得
   useEffect(() => {
@@ -88,13 +121,59 @@ function Profile() {
     }
   };
 
+  const today = new Date();
+  const oneYearAgo = new Date();
+  oneYearAgo.setFullYear(today.getFullYear() - 1);
+
   return (
     <>
       <header className="header">
         <h1>プロフィール編集</h1>
       </header>
 
-      <div style={{ padding: '24px' }}>
+      <div style={{ padding: '24px', maxWidth: '650px', margin: '0 auto' }}>
+        
+        {/* ヒートマップ */}
+        <div style={{
+          border: '1px solid var(--border-color)',
+          borderRadius: '16px',
+          padding: '20px',
+          backgroundColor: 'var(--bg-surface-hover)',
+          marginBottom: '32px'
+        }}>
+          <h2 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '4px', color: 'var(--text-primary)' }}>活動ステータス</h2>
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '16px' }}>
+            過去1年間に <strong style={{ color: 'var(--accent-color)', fontSize: '1.05rem' }}>{totalPostsThisYear}回</strong> 壁打ちを行いました！
+          </p>
+          <div style={{ width: '100%', overflowX: 'auto' }}>
+            <div style={{ minWidth: '500px' }}>
+              <CalendarHeatmap
+                startDate={oneYearAgo}
+                endDate={today}
+                values={heatmapData}
+                classForValue={(value) => {
+                  if (!value || value.count === 0) {
+                    return 'color-empty';
+                  }
+                  if (value.count === 1) return 'color-scale-1';
+                  if (value.count === 2) return 'color-scale-2';
+                  if (value.count === 3) return 'color-scale-3';
+                  return 'color-scale-4';
+                }}
+              />
+            </div>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '6px', fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '8px' }}>
+            <span>Less</span>
+            <span style={{ width: '10px', height: '10px', backgroundColor: 'var(--border-color)', borderRadius: '2px' }}></span>
+            <span style={{ width: '10px', height: '10px', backgroundColor: '#0e4429', borderRadius: '2px' }}></span>
+            <span style={{ width: '10px', height: '10px', backgroundColor: '#006d32', borderRadius: '2px' }}></span>
+            <span style={{ width: '10px', height: '10px', backgroundColor: '#26a641', borderRadius: '2px' }}></span>
+            <span style={{ width: '10px', height: '10px', backgroundColor: '#39d353', borderRadius: '2px' }}></span>
+            <span>More</span>
+          </div>
+        </div>
+
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', maxWidth: '400px' }}>
           
           {/* アイコン画像 */}

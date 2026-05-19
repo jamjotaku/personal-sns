@@ -3,6 +3,7 @@ import { Heart, MessageCircle, Repeat, Share, Loader2, Search as SearchIcon } fr
 import { auth, db } from '../firebase';
 import { collection, getDocs, query, orderBy, limit, doc, updateDoc, increment, arrayRemove, setDoc, arrayUnion, onSnapshot } from 'firebase/firestore';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
+import MarkdownRenderer from '../components/MarkdownRenderer';
 
 function Search() {
   const navigate = useNavigate();
@@ -15,6 +16,13 @@ function Search() {
   const [loading, setLoading] = useState(false);
   const [users, setUsers] = useState({});
   const user = auth.currentUser;
+
+  // URLパラメータ（q）の変更をローカルステートに同期（レンダー中にStateを更新するReact推奨パターン）
+  const [prevQuery, setPrevQuery] = useState(initialQuery);
+  if (initialQuery !== prevQuery) {
+    setPrevQuery(initialQuery);
+    setKeyword(initialQuery);
+  }
 
   // ユーザー情報を取得
   useEffect(() => {
@@ -139,10 +147,20 @@ function Search() {
                       <span className="post-time" style={{color: 'var(--text-secondary)'}}>{post.username} · {formatDate(post.createdAt)}</span>
                     </div>
                   </div>
-                  <Link to={`/post/${post.id}`} style={{ display: 'block', color: 'inherit', textDecoration: 'none' }}>
-                    <div className="post-text">{post.content}</div>
+                  <div 
+                    onClick={(e) => {
+                      if (e.target.closest('a, button, .hashtag, .interaction-btn')) {
+                        return;
+                      }
+                      navigate(`/post/${post.id}`);
+                    }}
+                    style={{ display: 'block', color: 'inherit', textDecoration: 'none', cursor: 'pointer' }}
+                  >
+                    <div className="post-text">
+                      <MarkdownRenderer content={post.content || ''} />
+                    </div>
                     {post.image && <div className="post-image"><img src={post.image} alt="attachment" /></div>}
-                  </Link>
+                  </div>
                   <div className="post-footer">
                     <button className="interaction-btn" onClick={(e) => { e.preventDefault(); navigate(`/post/${post.id}`); }}><MessageCircle size={18} /></button>
                     <button className="interaction-btn"><Repeat size={18} /></button>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Heart, MessageCircle, Repeat, Share, Loader2, ArrowLeft, Trash2, ImagePlus, X } from 'lucide-react';
+import MarkdownRenderer from '../components/MarkdownRenderer';
 import { auth, db } from '../firebase';
 import { doc, getDoc, collection, query, where, orderBy, onSnapshot, updateDoc, increment, arrayUnion, arrayRemove, setDoc, addDoc, serverTimestamp, deleteDoc } from 'firebase/firestore';
 
@@ -70,6 +71,17 @@ function PostDetail() {
         createdAt: serverTimestamp(),
         replyTo: id // スレッド紐付け
       });
+
+      // --- ヒートマップ用の日別投稿数をインクリメント ---
+      const today = new Date();
+      const dateString = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+      const statRef = doc(db, 'daily_stats', dateString);
+      await setDoc(statRef, {
+        date: dateString,
+        count: increment(1),
+        userId: user.uid
+      }, { merge: true });
+
       setReplyContent('');
     } catch (error) {
       console.error("返信エラー:", error);
@@ -122,14 +134,7 @@ function PostDetail() {
     return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日 ${date.getHours()}:${String(date.getMinutes()).padStart(2, '0')}`;
   };
 
-  const renderContentWithTags = (text) => {
-    if (!text) return '';
-    const parts = text.split(/(#[^\s#]+)/g);
-    return parts.map((part, i) => {
-      if (part.startsWith('#')) return <Link to={`/search?q=${encodeURIComponent(part)}`} key={i} className="hashtag">{part}</Link>;
-      return part;
-    });
-  };
+
 
   if (loading) {
     return <div style={{ padding: '32px', textAlign: 'center' }}><Loader2 className="spinner" size={24} style={{margin: '0 auto'}}/></div>;
@@ -164,8 +169,8 @@ function PostDetail() {
           </div>
         </div>
         
-        <div style={{ fontSize: '1.25rem', whiteSpace: 'pre-wrap', lineHeight: 1.5, marginBottom: '16px' }}>
-          {renderContentWithTags(post.content || '')}
+        <div style={{ fontSize: '1.25rem', whiteSpace: 'normal', lineHeight: 1.5, marginBottom: '16px' }}>
+          <MarkdownRenderer content={post.content || ''} />
         </div>
         
         {post.image && (
@@ -244,7 +249,7 @@ function PostDetail() {
                   )}
                 </div>
                 <div className="post-text">
-                  {renderContentWithTags(reply.content || '')}
+                  <MarkdownRenderer content={reply.content || ''} />
                 </div>
                 <div className="post-footer">
                   <button className="interaction-btn" onClick={(e) => { e.preventDefault(); navigate(`/post/${reply.id}`); }}><MessageCircle size={18} /></button>

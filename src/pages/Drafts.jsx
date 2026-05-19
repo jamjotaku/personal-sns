@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Loader2, Trash2, Edit3, Send } from 'lucide-react';
 import { auth, db } from '../firebase';
-import { collection, addDoc, query, where, onSnapshot, doc, deleteDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
+import { collection, addDoc, query, where, onSnapshot, doc, deleteDoc, serverTimestamp, updateDoc, setDoc, increment } from 'firebase/firestore';
 
 function Drafts() {
   const [drafts, setDrafts] = useState([]);
@@ -69,6 +69,16 @@ function Drafts() {
         likes: 0,
         createdAt: serverTimestamp()
       });
+      
+      // --- ヒートマップ用の日別投稿数をインクリメント ---
+      const today = new Date();
+      const dateString = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+      const statRef = doc(db, 'daily_stats', dateString);
+      await setDoc(statRef, {
+        date: dateString,
+        count: increment(1),
+        userId: user.uid
+      }, { merge: true });
       
       // 投稿に成功したら下書きを削除
       if (editingDraftId) {
