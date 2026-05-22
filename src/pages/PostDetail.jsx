@@ -1,12 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
-import { Heart, MessageCircle, Repeat, Share, Loader2, ArrowLeft, Trash2, ImagePlus, X } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { Heart, MessageCircle, Repeat, Share, Loader2, ArrowLeft, Trash2 } from 'lucide-react';
 import MarkdownRenderer from '../components/MarkdownRenderer';
 import { auth, db } from '../firebase';
-import { doc, getDoc, collection, query, where, orderBy, onSnapshot, updateDoc, increment, arrayUnion, arrayRemove, setDoc, addDoc, serverTimestamp, deleteDoc } from 'firebase/firestore';
-
-const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || '';
-const CLOUDINARY_UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || '';
+import { doc, collection, query, where, onSnapshot, updateDoc, increment, arrayUnion, arrayRemove, setDoc, addDoc, serverTimestamp, deleteDoc } from 'firebase/firestore';
 
 function PostDetail() {
   const { id } = useParams();
@@ -113,6 +110,11 @@ function PostDetail() {
     if (!isOwnPost) return;
     if (window.confirm('このポストを削除しますか？')) {
       try {
+        if (postId === id) {
+          // 親ポストを削除する時、紐づくすべての返信（子ポスト）も一括で削除する
+          const deletePromises = replies.map(reply => deleteDoc(doc(db, 'posts', reply.id)));
+          await Promise.all(deletePromises);
+        }
         await deleteDoc(doc(db, 'posts', postId));
         if (postId === id) navigate('/'); // メインポストを消したらホームに戻る
       } catch (error) {
@@ -212,6 +214,11 @@ function PostDetail() {
               setReplyContent(e.target.value);
               e.target.style.height = 'auto';
               e.target.style.height = e.target.scrollHeight + 'px';
+            }}
+            onKeyDown={(e) => {
+              if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                if (!isSubmitting) handleReplySubmit();
+              }
             }}
             style={{ fontSize: '1.1rem', minHeight: '40px' }}
           />

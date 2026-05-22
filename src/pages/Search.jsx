@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Heart, MessageCircle, Repeat, Share, Loader2, Search as SearchIcon } from 'lucide-react';
 import { auth, db } from '../firebase';
 import { collection, getDocs, query, orderBy, limit, doc, updateDoc, increment, arrayRemove, setDoc, arrayUnion, onSnapshot } from 'firebase/firestore';
-import { Link, useSearchParams, useNavigate } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import MarkdownRenderer from '../components/MarkdownRenderer';
 
 function Search() {
@@ -12,7 +12,6 @@ function Search() {
   const [keyword, setKeyword] = useState(initialQuery);
   
   const [allPosts, setAllPosts] = useState([]);
-  const [filteredPosts, setFilteredPosts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [users, setUsers] = useState({});
   const user = auth.currentUser;
@@ -52,19 +51,17 @@ function Search() {
     fetchRecentPosts();
   }, []);
 
-  // 検索実行
-  useEffect(() => {
+  // 検索実行（useMemoによる動的算出）
+  const filteredPosts = useMemo(() => {
     if (!keyword.trim()) {
-      setFilteredPosts([]);
-      return;
+      return [];
     }
     const lowerKeyword = keyword.toLowerCase();
-    const results = allPosts.filter(post => 
+    return allPosts.filter(post => 
       post.content?.toLowerCase().includes(lowerKeyword) || 
       post.username?.toLowerCase().includes(lowerKeyword) ||
       post.author?.toLowerCase().includes(lowerKeyword)
     );
-    setFilteredPosts(results);
   }, [keyword, allPosts]);
 
   const handleSearch = (e) => {
@@ -81,9 +78,21 @@ function Search() {
       if (isLiked) {
         await updateDoc(postRef, { likes: increment(-1) });
         await updateDoc(userRef, { bookmarks: arrayRemove(postId) });
+        // ローカルステートを即時更新して画面に反映
+        setAllPosts(prevPosts =>
+          prevPosts.map(post =>
+            post.id === postId ? { ...post, likes: Math.max(0, (post.likes || 0) - 1) } : post
+          )
+        );
       } else {
         await updateDoc(postRef, { likes: increment(1) });
         await setDoc(userRef, { bookmarks: arrayUnion(postId) }, { merge: true });
+        // ローカルステートを即時更新して画面に反映
+        setAllPosts(prevPosts =>
+          prevPosts.map(post =>
+            post.id === postId ? { ...post, likes: (post.likes || 0) + 1 } : post
+          )
+        );
       }
     } catch (error) {
       console.error(error);

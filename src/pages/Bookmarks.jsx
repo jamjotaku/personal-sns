@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { Heart, MessageCircle, Repeat, Share, Loader2, Trash2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Heart, MessageCircle, Repeat, Share, Loader2 } from 'lucide-react';
 import { auth, db } from '../firebase';
-import { doc, getDoc, updateDoc, increment, arrayRemove, setDoc, onSnapshot, collection } from 'firebase/firestore';
-import { Link, useNavigate } from 'react-router-dom';
+import { doc, getDoc, updateDoc, increment, arrayRemove, onSnapshot, collection } from 'firebase/firestore';
+import { useNavigate } from 'react-router-dom';
 import MarkdownRenderer from '../components/MarkdownRenderer';
 
 function Bookmarks() {

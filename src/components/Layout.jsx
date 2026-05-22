@@ -1,17 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Home, Bell, Mail, User, Search, Sparkles, Moon, Sun } from 'lucide-react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { auth, db } from '../firebase';
 import { signOut } from 'firebase/auth';
 import { doc, onSnapshot } from 'firebase/firestore';
 
 function Layout({ children }) {
   const location = useLocation();
+  const navigate = useNavigate();
   const user = auth.currentUser;
   const [profileData, setProfileData] = useState(null);
   const [isDarkMode, setIsDarkMode] = useState(() => {
     return localStorage.getItem('theme') !== 'light';
   });
+  const [sidebarSearch, setSidebarSearch] = useState('');
 
   useEffect(() => {
     if (isDarkMode) {
@@ -73,7 +75,12 @@ function Layout({ children }) {
             </button>
           </nav>
           
-          <button className="post-btn-sidebar">
+          <button 
+            className="post-btn-sidebar"
+            onClick={() => {
+              navigate('/', { state: { focusComposer: true } });
+            }}
+          >
             投稿する
           </button>
 
@@ -98,7 +105,18 @@ function Layout({ children }) {
       <aside className="right-sidebar">
         <div className="search-bar">
           <Search size={18} color="#71767b" />
-          <input type="text" placeholder="検索" />
+          <input 
+            type="text" 
+            placeholder="検索" 
+            value={sidebarSearch}
+            onChange={(e) => setSidebarSearch(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && sidebarSearch.trim()) {
+                navigate(`/search?q=${encodeURIComponent(sidebarSearch.trim())}`);
+                setSidebarSearch('');
+              }
+            }}
+          />
         </div>
         <div className="trends">
           <h2>おすすめのトレンド</h2>

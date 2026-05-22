@@ -4,6 +4,13 @@ WORKDIR /app
 COPY package*.json ./
 # legacy-peer-deps requires due to React 19 and lucide-react dependencies
 RUN npm install --legacy-peer-deps
+
+# Viteのビルド時に環境変数を埋め込むための設定
+ARG VITE_CLOUDINARY_CLOUD_NAME
+ARG VITE_CLOUDINARY_UPLOAD_PRESET
+ENV VITE_CLOUDINARY_CLOUD_NAME=$VITE_CLOUDINARY_CLOUD_NAME
+ENV VITE_CLOUDINARY_UPLOAD_PRESET=$VITE_CLOUDINARY_UPLOAD_PRESET
+
 COPY . .
 RUN npm run build
 

@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { ImagePlus, Heart, MessageCircle, Repeat, Share, Loader2, X, Trash2 } from 'lucide-react';
 import { auth, db } from '../firebase';
 import { collection, addDoc, onSnapshot, query, orderBy, serverTimestamp, doc, updateDoc, increment, deleteDoc, limit, arrayUnion, arrayRemove, setDoc } from 'firebase/firestore';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import MarkdownRenderer from '../components/MarkdownRenderer';
 // TODO: 後ほどユーザーに設定してもらうCloudinaryの定数
 const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || '';
@@ -33,7 +33,18 @@ function Home() {
   }, [hasMore]);
   
   const fileInputRef = useRef(null);
+  const composerRef = useRef(null);
   const user = auth.currentUser;
+  const location = useLocation();
+
+  // サイドバーの「投稿する」等からの遷移でフォーカスをあてる処理
+  useEffect(() => {
+    if (location.state?.focusComposer && composerRef.current) {
+      composerRef.current.focus();
+      // フォーカス後にstateをクリアして、リロード時等に再フォーカスしないようにする
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location, navigate]);
 
   // Firestoreからユーザープロフィール情報を取得
   useEffect(() => {
@@ -210,7 +221,6 @@ function Home() {
     const diffMs = now - date;
     const diffMins = Math.floor(diffMs / 60000);
     const diffHours = Math.floor(diffMins / 60);
-    const diffDays = Math.floor(diffHours / 24);
 
     if (diffMins < 60) return `${diffMins}分`;
     if (diffHours < 24) return `${diffHours}時間`;
@@ -284,6 +294,7 @@ function Home() {
           ) : (
             <textarea 
               className="composer-input"
+              ref={composerRef}
               placeholder="いまどうしてる？（Ctrl+Enterで送信）"
               value={content}
               onChange={(e) => {
@@ -293,7 +304,7 @@ function Home() {
               }}
               onKeyDown={(e) => {
                 if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-                  handleSubmit();
+                  if (!isSubmitting) handleSubmit();
                 }
               }}
             />

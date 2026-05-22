@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Loader2, Trash2, Edit3, Send } from 'lucide-react';
 import { auth, db } from '../firebase';
-import { collection, addDoc, query, where, onSnapshot, doc, deleteDoc, serverTimestamp, updateDoc, setDoc, increment } from 'firebase/firestore';
+import { collection, addDoc, query, where, onSnapshot, doc, deleteDoc, serverTimestamp, updateDoc, setDoc, increment, getDoc } from 'firebase/firestore';
 
 function Drafts() {
   const [drafts, setDrafts] = useState([]);
@@ -58,13 +58,27 @@ function Drafts() {
     if (!draftContent.trim() || !user) return;
     setIsPosting(true);
     try {
-      // ユーザー情報の取得（簡易版、実際のアプリではコンテキスト等から）
+      // ユーザーの最新プロフィール情報をFirestoreから取得
+      const userDocRef = doc(db, 'users', user.uid);
+      const userDocSnap = await getDoc(userDocRef);
+      let authorName = '自分';
+      let photoURL = null;
+      
+      if (userDocSnap.exists()) {
+        const uData = userDocSnap.data();
+        authorName = uData.displayName || user.displayName || '自分';
+        photoURL = uData.photoURL || user.photoURL || null;
+      } else {
+        authorName = user.displayName || '自分';
+        photoURL = user.photoURL || null;
+      }
+
       const currentUsername = '@' + user.email.split('@')[0];
       await addDoc(collection(db, 'posts'), {
         userId: user.uid,
         username: currentUsername,
-        author: user.displayName || '自分',
-        userPhotoURL: user.photoURL || null,
+        author: authorName,
+        userPhotoURL: photoURL,
         content: draftContent.trim(),
         likes: 0,
         createdAt: serverTimestamp()

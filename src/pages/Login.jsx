@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
-import { auth } from '../firebase';
+import { useState } from 'react';
+import { auth, db } from '../firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
+import { doc, setDoc } from 'firebase/firestore';
 import { Sparkles, Loader2 } from 'lucide-react';
 import '../index.css';
 
@@ -28,7 +29,16 @@ function Login() {
       if (isLoginMode) {
         await signInWithEmailAndPassword(auth, dummyEmail, password);
       } else {
-        await createUserWithEmailAndPassword(auth, dummyEmail, password);
+        const res = await createUserWithEmailAndPassword(auth, dummyEmail, password);
+        // 初期ユーザー情報のドキュメントを Firestore に作成
+        const userRef = doc(db, 'users', res.user.uid);
+        await setDoc(userRef, {
+          displayName: userId, // デフォルトでログインIDを表示名にする
+          bio: '',
+          photoURL: '',
+          bookmarks: [],
+          createdAt: new Date()
+        });
       }
     } catch (err) {
       console.error(err);

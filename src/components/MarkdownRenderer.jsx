@@ -59,7 +59,7 @@ function MarkdownRenderer({ content, onTagClick }) {
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
-          a: ({ node, href, children, ...props }) => {
+          a: ({ href, children, ...props }) => {
             return (
               <a
                 href={href}
@@ -72,7 +72,7 @@ function MarkdownRenderer({ content, onTagClick }) {
               </a>
             );
           },
-          code({ node, inline, className, children, ...props }) {
+          code({ inline, className, children, ...props }) {
             const match = /language-(\w+)/.exec(className || '');
             return !inline && match ? (
               <div
