@@ -4,6 +4,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { auth, db } from '../firebase';
 import { signOut } from 'firebase/auth';
 import { doc, onSnapshot } from 'firebase/firestore';
+import { useTrendingTags } from '../hooks/useTrendingTags';
 
 function Layout({ children }) {
   const location = useLocation();
@@ -14,6 +15,7 @@ function Layout({ children }) {
     return localStorage.getItem('theme') !== 'light';
   });
   const [sidebarSearch, setSidebarSearch] = useState('');
+  const { trendingTags, loading: tagsLoading } = useTrendingTags();
 
   useEffect(() => {
     if (isDarkMode) {
@@ -119,17 +121,20 @@ function Layout({ children }) {
           />
         </div>
         <div className="trends">
-          <h2>おすすめのトレンド</h2>
-          <div className="trend-item">
-            <span className="trend-category">音楽 · トレンド</span>
-            <span className="trend-name">#推しA</span>
-            <span className="trend-posts">120件のポスト</span>
-          </div>
-          <div className="trend-item">
-            <span className="trend-category">イベント · トレンド</span>
-            <span className="trend-name">最高のライブ</span>
-            <span className="trend-posts">45件のポスト</span>
-          </div>
+          <h2>マイトレンド</h2>
+          {tagsLoading ? (
+            <div style={{ color: '#71767b', fontSize: '14px', marginTop: '10px' }}>読み込み中...</div>
+          ) : trendingTags.length > 0 ? (
+            trendingTags.map((t, index) => (
+              <Link to={`/search?q=${encodeURIComponent(t.tag)}`} key={index} className="trend-item" style={{ textDecoration: 'none', display: 'block' }}>
+                <span className="trend-category">よく使うタグ</span>
+                <span className="trend-name">{t.tag}</span>
+                <span className="trend-posts">{t.count}件のポスト</span>
+              </Link>
+            ))
+          ) : (
+            <div style={{ color: '#71767b', fontSize: '14px', marginTop: '10px' }}>最近使われたタグはありません</div>
+          )}
         </div>
       </aside>
     </div>

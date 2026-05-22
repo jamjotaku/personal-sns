@@ -4,6 +4,7 @@ import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { Link } from 'react-router-dom';
+import LinkPreview from './LinkPreview';
 
 const processHashtags = (children, onTagClick) => {
   if (!children) return children;
@@ -60,6 +61,17 @@ function MarkdownRenderer({ content, onTagClick }) {
         remarkPlugins={[remarkGfm]}
         components={{
           a: ({ href, children, ...props }) => {
+            // テキストが単一のURL文字列で、hrefと一致するか判定
+            const isPlainUrl = 
+              Array.isArray(children) && 
+              children.length === 1 && 
+              typeof children[0] === 'string' &&
+              (children[0] === href || children[0] === decodeURIComponent(href));
+              
+            if (isPlainUrl) {
+              return <LinkPreview url={href} {...props} />;
+            }
+
             return (
               <a
                 href={href}
